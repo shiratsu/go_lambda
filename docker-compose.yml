@@ -1,18 +1,69 @@
 version: '3.7'
 services:
-  dynamodb:
-    image:  amazon/dynamodb-local
-    container_name: my-dynamodb
-    hostname: dynamodb
-    restart: always
+  front_app:
+    build:
+      context: .
+      dockerfile: build_front/Dockerfile
     volumes:
-      -  ./my-dynamodb-data:/home/dynamodblocal/data
+      - ./front:/usr/src/app
+    ports:
+      - "3000:3000"
+    command: bash -c "npm run dev"
+  dynamodb-local:
+    container_name: test_dynamodb-local
+    image: amazon/dynamodb-local:latest
+    user: root
+    command: -jar DynamoDBLocal.jar -sharedDb -dbPath /data
+    volumes:
+      - ./dynamodb:/data
     ports:
       - 8000:8000
-    command: "-jar DynamoDBLocal.jar -sharedDb -dbPath /home/dynamodblocal/data/"
+    networks:
+      - dynamodb-local-network
+
+  dynamodb-admin:
+    container_name: test_dynamodb-admin
+    image: aaronshaf/dynamodb-admin:latest
+    environment:
+      - DYNAMO_ENDPOINT=dynamodb-local:8000
+    ports:
+      - 8001:8001
+    depends_on:
+      - dynamodb-local
+    networks:
+      - dynamodb-local-network
+
+  awscli:
+    build:
+      context: .
+      dockerfile: build_awscli/Dockerfile
+    entrypoint: [""]
+    tty: true
+    command:
+      - /bin/sh
+    
+  golocal:
+    build:
+      context: .
+      dockerfile: docker/go/Dockerfile
+    ports:
+      - 9001:8080
+    depends_on:
+      -  dynamodb-local
+    volumes:
+      - ./app:/go/src/app # マウントディレクトリ
   golambda:
     build:
-      context: ./build
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: build_backend/Dockerfile
     ports:
       - 9000:8080
+    depends_on:
+      - dynamodb-local
+
+volumes:
+  dynamodb-local-data:
+
+networks:
+  dynamodb-local-network:
+    driver: bridge
