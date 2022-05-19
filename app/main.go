@@ -3,7 +3,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/aws/aws-lambda-go/lambda"
 )
 func Handler(ctx context.Context) {
